@@ -24,40 +24,27 @@ class DoubleConv(nn.Module):
     
 class UNet(nn.Module):
     """U-Net original (Ronneberger et al. 2015)"""
-    def __init__(self, in_channels=3, num_classes=2):
-        super(UNet, self).__init__()
-        
-        # Encoder (downsampling)
-        self.enc1 = DoubleConv(in_channels, 64)
-        self.pool1 = nn.MaxPool2d(2)
-        
-        self.enc2 = DoubleConv(64, 128)
-        self.pool2 = nn.MaxPool2d(2)
-        
-        self.enc3 = DoubleConv(128, 256)
-        self.pool3 = nn.MaxPool2d(2)
-        
-        self.enc4 = DoubleConv(256, 512)
-        self.pool4 = nn.MaxPool2d(2)
-        
-        # Bottleneck
-        self.bottleneck = DoubleConv(512, 1024)
-        
-        # Decoder (upsampling)
-        self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.dec4 = DoubleConv(1024, 512)
-        
-        self.upconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.dec3 = DoubleConv(512, 256)
-        
-        self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.dec2 = DoubleConv(256, 128)
-        
-        self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.dec1 = DoubleConv(128, 64)
-        
-        # Output
-        self.out = nn.Conv2d(64, num_classes, kernel_size=1)
+    def __init__(self, in_channels=3, num_classes=2, base_ch=32):
+            super().__init__()
+            self.enc1 = DoubleConv(in_channels, base_ch)
+            self.pool1 = nn.MaxPool2d(2)
+
+            self.enc2 = DoubleConv(base_ch, base_ch*2);   self.pool2 = nn.MaxPool2d(2)
+            self.enc3 = DoubleConv(base_ch*2, base_ch*4); self.pool3 = nn.MaxPool2d(2)
+            self.enc4 = DoubleConv(base_ch*4, base_ch*8); self.pool4 = nn.MaxPool2d(2)
+
+            self.bottleneck = DoubleConv(base_ch*8, base_ch*16)
+
+            self.upconv4 = nn.ConvTranspose2d(base_ch*16, base_ch*8, 2, 2)
+            self.dec4    = DoubleConv(base_ch*16, base_ch*8)
+            self.upconv3 = nn.ConvTranspose2d(base_ch*8,  base_ch*4, 2, 2)
+            self.dec3    = DoubleConv(base_ch*8,  base_ch*4)
+            self.upconv2 = nn.ConvTranspose2d(base_ch*4,  base_ch*2, 2, 2)
+            self.dec2    = DoubleConv(base_ch*4,  base_ch*2)
+            self.upconv1 = nn.ConvTranspose2d(base_ch*2,  base_ch,   2, 2)
+            self.dec1    = DoubleConv(base_ch*2,  base_ch)
+
+            self.out = nn.Conv2d(base_ch, num_classes, 1)
     
     def forward(self, x):
         # Encoder

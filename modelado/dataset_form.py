@@ -5,8 +5,9 @@ from pathlib import Path
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-# Transformers
+
 train_transform = A.Compose([
+    A.Resize(256, 256),
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
     A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -14,6 +15,7 @@ train_transform = A.Compose([
 ])
 
 val_transform = A.Compose([
+    A.Resize(256, 256),
     A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ToTensorV2()
 ])
@@ -53,4 +55,4 @@ class SimpleDataset(torch.utils.data.Dataset):
             img = augmented['image']
             mask = augmented['mask']
         
-        return img, mask.long(), self.tile_ids
+        return img, mask.long(), tile_id
