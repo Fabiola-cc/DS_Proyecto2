@@ -37,8 +37,8 @@ def load_models():
         
         models = {}
         model_files = {
-            'FCN': 'best_fcn8s.pth',
-            'SegNet': 'best_segnet_base.pth',
+            'FCN': 'models/best_fcn8s.pth',
+            'SegNet': 'models/best_segnet_base.pth',
             # 'UNet': 'best_unet_base.pth',
             # 'Attention UNet': 'best_unet_tiny.pth'
         }
@@ -87,7 +87,7 @@ def load_performance_metrics():
     # Reemplaza estos valores con las métricas reales de tus modelos
     metrics = {
         'FCN': {'Dice Score': 0.6240, 'Precision': 0.7141, 'Recall': 0.5620, 'F1-Score': 0.6240},
-        'SegNet': {'Dice Score': 0.6049, 'Precision': 0.7160, 'Recall': 0.5550, 'F1-Score': 0.6049},
+        'SegNet': {'Dice Score': 0.5640, 'Precision': 0.6203, 'Recall': 0.5950, 'F1-Score': 0.5604},
         'UNet': {'Dice Score': 0.82, 'Precision': 0.80, 'Recall': 0.85, 'F1-Score': 0.82},
         'Attention UNet': {'Dice Score': 0.90, 'Precision': 0.89, 'Recall': 0.91, 'F1-Score': 0.90}
     }
@@ -148,6 +148,7 @@ elif page == "Predicción Individual":
     if models is None:
         st.error("No se pueden realizar predicciones sin los modelos cargados.")
     else:
+
         # Selección de modelo
         selected_model = st.selectbox("Selecciona un modelo:", list(models.keys()))
         
@@ -155,89 +156,135 @@ elif page == "Predicción Individual":
         
         # Subir imagen
         uploaded_file = st.file_uploader("Selecciona una imagen", type=['jpg', 'jpeg', 'png'])
-        
+
+        # Inicializar variables persistentes
+        if "prediction" not in st.session_state:
+            st.session_state.prediction = None
+            st.session_state.image = None
+            st.session_state.probabilities = None
+
         if uploaded_file is not None:
-            # Mostrar imagen original
             from PIL import Image
             import torchvision.transforms as transforms
-            
+            import torch.nn.functional as F
+
+            # Cargar imagen original
             image = Image.open(uploaded_file).convert('RGB')
-            
+            st.session_state.image = image
+            original_size = image.size  # (W, H)
+
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("Imagen Original")
-                st.image(image, use_container_width=True)
-            
-            # Botón de predicción
+                st.image(image, use_column_width=True)
+
+            # BOTÓN DE PREDICCIÓN (SE GUARDA EN SESSION_STATE)
             if st.button("🎯 Realizar Segmentación", type="primary"):
                 with st.spinner("Procesando imagen..."):
+
                     # Preprocesar imagen
                     transform = transforms.Compose([
-                        transforms.Resize((256, 256)),  # Ajusta el tamaño según tu entrenamiento
+                        transforms.Resize((256, 256)),
                         transforms.ToTensor(),
                         transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                           std=[0.229, 0.224, 0.225])
+                                             std=[0.229, 0.224, 0.225])
                     ])
                     
                     input_tensor = transform(image).unsqueeze(0).to(device)
-                    
-                    # Realizar predicción
-                    model = models[selected_model]
+
+                    # Cargar modelo
+                    model, epoch, dice_score, history = models[selected_model]
+
+                    # --- Predicción ---
                     with torch.no_grad():
-                        output = model(input_tensor)
-                        prediction = torch.argmax(output, dim=1).squeeze().cpu().numpy()
+                        output = model(input_tensor)  # (1,2,256,256)
+                        prediction = torch.argmax(output, dim=1).cpu().numpy()[0]
+                        
+                        # PROBABILIDADES
                         probabilities = torch.softmax(output, dim=1).cpu().numpy()
-                    
-                    # Mostrar resultados
-                    with col2:
-                        st.subheader("Máscara de Segmentación")
-                        # Visualizar la máscara de segmentación
-                        fig = px.imshow(prediction, color_continuous_scale='Viridis')
-                        fig.update_layout(coloraxis_showscale=True)
-                        st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Métricas
-                    st.success("✅ Segmentación completada!")
-                    
-                    col_m1, col_m2, col_m3 = st.columns(3)
-                    with col_m1:
-                        pixels_clase0 = np.sum(prediction == 0)
-                        st.metric("Píxeles Clase 0", f"{pixels_clase0:,}")
-                    with col_m2:
-                        pixels_clase1 = np.sum(prediction == 1)
-                        st.metric("Píxeles Clase 1", f"{pixels_clase1:,}")
-                    with col_m3:
-                        porcentaje = (pixels_clase1 / (pixels_clase0 + pixels_clase1)) * 100
-                        st.metric("% Clase 1", f"{porcentaje:.2f}%")
-                    
-                    # Visualizar probabilidades promedio
-                    st.subheader("Confianza Promedio por Clase")
-                    avg_probs = probabilities.mean(axis=(2, 3))[0]
-                    prob_df = pd.DataFrame({
-                        'Clase': [f'Clase {i}' for i in range(len(avg_probs))],
-                        'Confianza Promedio': avg_probs
-                    })
-                    fig_prob = px.bar(prob_df, x='Clase', y='Confianza Promedio',
-                                     title='Confianza Promedio por Clase')
-                    st.plotly_chart(fig_prob, use_container_width=True)
-                    
-                    # Opción de overlay
-                    if st.checkbox("Mostrar overlay de segmentación"):
-                        import matplotlib.pyplot as plt
-                        import matplotlib.colors as mcolors
-                        
-                        fig, ax = plt.subplots(figsize=(10, 10))
-                        ax.imshow(image.resize((256, 256)))
-                        
-                        # Crear máscara coloreada con transparencia
-                        masked = np.ma.masked_where(prediction == 0, prediction)
-                        cmap = mcolors.ListedColormap(['none', 'red'])
-                        ax.imshow(masked, cmap=cmap, alpha=0.5)
-                        ax.axis('off')
-                        
-                        st.pyplot(fig)
+
+                        # --- Redimensionar máscara a tamaño original ---
+                        pred_torch = torch.from_numpy(prediction).unsqueeze(0).unsqueeze(0).float()
+                        upscaled = F.interpolate(pred_torch, size=(image.height, image.width),
+                                                 mode='nearest')
+                        prediction_resized = upscaled.squeeze().numpy()
+
+                    # Guardar en sesión
+                    st.session_state.prediction = prediction_resized
+                    st.session_state.probabilities = probabilities
+
+            # ============================
+            # SI YA TENEMOS PREDICCIÓN
+            # ============================
+            if st.session_state.prediction is not None:
+
+                prediction = st.session_state.prediction
+                probabilities = st.session_state.probabilities
+                image = st.session_state.image
+
+                with col2:
+                    st.subheader("Máscara de Segmentación")
+                    fig = px.imshow(prediction, color_continuous_scale='Viridis')
+                    fig.update_layout(
+                        coloraxis_showscale=True,
+                        width=850,
+                        height=850
+                    )
+                    st.plotly_chart(fig, use_container_width=False)
+
+                # MÉTRICAS
+                st.success("✅ Segmentación completada!")
+
+                col_m1, col_m2, col_m3 = st.columns(3)
+                with col_m1:
+                    pixels_clase0 = np.sum(prediction == 0)
+                    st.metric("Píxeles Clase 0", f"{pixels_clase0:,}")
+                with col_m2:
+                    pixels_clase1 = np.sum(prediction == 1)
+                    st.metric("Píxeles Clase 1", f"{pixels_clase1:,}")
+                with col_m3:
+                    porcentaje = (pixels_clase1 / (pixels_clase0 + pixels_clase1)) * 100
+                    st.metric("% Clase 1", f"{porcentaje:.2f}%")
+
+                # Probabilidades promedio
+                st.subheader("Confianza Promedio por Clase")
+                avg_probs = probabilities.mean(axis=(2, 3))[0]
+                prob_df = pd.DataFrame({
+                    'Clase': [f'Clase {i}' for i in range(len(avg_probs))],
+                    'Confianza Promedio': avg_probs
+                })
+                fig_prob = px.bar(prob_df, x='Clase', y='Confianza Promedio')
+                st.plotly_chart(fig_prob, use_container_width=True)
+
+                # Overlay
+                # Opción de overlay
+                if st.checkbox("Mostrar overlay de segmentación"):
+                    import matplotlib.pyplot as plt
+                    import matplotlib.colors as mcolors
+
+                    # Imagen + máscara más pequeñas
+                    fig, ax = plt.subplots(figsize=(3, 3))  # <-- TAMAÑO REDUCIDO
+
+                    ax.imshow(image)  # imagen original
+
+                    # Máscara reescalada al tamaño original
+                    mask = prediction.astype(np.uint8)
+
+                    cmap = mcolors.ListedColormap([
+                        (0, 0, 0, 0),     # Clase 0 → transparente
+                        (1, 0, 0, 0.5)    # Clase 1 → rojo semitransparente
+                    ])
+
+                    ax.imshow(mask, cmap=cmap, interpolation='nearest')
+                    ax.axis('off')
+
+                    st.pyplot(fig)
+
+
         else:
             st.info("Por favor, sube una imagen para comenzar la segmentación.")
+
+
 
 # ============== PÁGINA DE COMPARACIÓN ==============
 elif page == "Comparación de Modelos":
@@ -404,10 +451,13 @@ elif page == "Visualizaciones":
                 st.metric("F1-Score Final", f"{final_f1:.4f}")
             
             with col4:
-                total_time = sum(history['epoch_times'])
-                avg_time = np.mean(history['epoch_times'])
-                st.metric("Tiempo Promedio/Época", f"{avg_time:.2f}s",
-                        delta=f"Total: {total_time:.0f}s")
+                if selected_model_curve == "SegNet":
+                    st.metric("Tiempo Promedio/Época", "89.05s", delta="Total: 2670s")
+                else:
+                    total_time = sum(history['epoch_times'])
+                    avg_time = np.mean(history['epoch_times'])
+                    st.metric("Tiempo Promedio/Época", f"{avg_time:.2f}s",
+                            delta=f"Total: {total_time:.0f}s")
         else:
             st.warning("Lastimosamente no se guardó el historial de este modelo para ver la evolución")
     else:
