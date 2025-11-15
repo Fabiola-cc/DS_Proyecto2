@@ -10,3 +10,5 @@ __pycache__/
 Thumbs.db
 
 train/
+
+best_segnet_base.pth
