@@ -11,4 +11,4 @@ Thumbs.db
 
 train/
 
-best_segnet_base.pth
+*.pth
