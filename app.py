@@ -87,9 +87,9 @@ def load_performance_metrics():
     # Reemplaza estos valores con las métricas reales de tus modelos
     metrics = {
         'FCN': {'Dice Score': 0.6240, 'Precision': 0.7141, 'Recall': 0.5620, 'F1-Score': 0.6240},
-        'SegNet': {'Dice Score': 0.5640, 'Precision': 0.6203, 'Recall': 0.5950, 'F1-Score': 0.5604},
-        'UNet': {'Dice Score': 0.82, 'Precision': 0.80, 'Recall': 0.85, 'F1-Score': 0.82},
-        'Attention UNet': {'Dice Score': 0.90, 'Precision': 0.89, 'Recall': 0.91, 'F1-Score': 0.90}
+        'SegNet': {'Dice Score': 0.5640, 'Precision': 0.5732, 'Recall': 0.5977, 'F1-Score': 0.5639},
+        'UNet': {'Dice Score': 0.4075, 'Precision': 0.4187, 'Recall': 0.3766, 'F1-Score': 0.3907},
+        'Attention UNet': {'Dice Score': 0.7549, 'Precision': 0.7091, 'Recall': 0.7230, 'F1-Score': 0.7160}
     }
     return metrics
 
