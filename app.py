@@ -39,8 +39,8 @@ def load_models():
         model_files = {
             'FCN': 'models/best_fcn8s.pth',
             'SegNet': 'models/best_segnet_base.pth',
-            # 'UNet': 'best_unet_base.pth',
-            # 'Attention UNet': 'best_unet_tiny.pth'
+            'UNet': 'models/unet_modificado.pth',
+            'Attention UNet': 'models/best_attention_unet_tiny.pth'
         }
         
         for name, file_path in model_files.items():
@@ -48,10 +48,10 @@ def load_models():
                 model = FCN8s(num_classes=num_classes, pretrained=True).to(device)
             elif name == 'SegNet':
                 model = SegNet(in_channels=3, num_classes=num_classes).to(device)
-            # elif name == 'UNet':
-            #     model = UNet(in_channels=3).to(device)
-            # elif name == 'Attention UNet':
-            #     model = AttentionUNetTiny(in_channels=3, num_classes=num_classes).to(device)
+            elif name == 'UNet':
+                model = UNet(in_channels=3).to(device)
+            elif name == 'Attention UNet':
+                model = AttentionUNetTiny(in_channels=3, num_classes=num_classes).to(device)
 
             # Cargar checkpoint completo
             checkpoint = torch.load(file_path, map_location=device, weights_only=False)
